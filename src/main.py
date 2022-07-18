@@ -3,6 +3,7 @@ import logging
 from aiogram import Dispatcher, executor
 
 import handlers
+import middlewares
 from bot import dp
 
 
@@ -11,6 +12,7 @@ async def startup(dispatcher: Dispatcher):
     logging.basicConfig(level=logging.INFO)
     logging.info("Configuring handlers...")
     handlers.setup(dispatcher)
+    middlewares.setup(dispatcher)
     logging.info("Start polling")
 
 

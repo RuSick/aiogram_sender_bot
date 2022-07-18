@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 from aiogram import types
 from aiogram.dispatcher import FSMContext
@@ -65,20 +66,47 @@ async def process_photo(message: types.Message, state: FSMContext):
         photo_id = message.photo[-1].file_id
         async with state.proxy() as data:
             data['photo'] = photo_id
-        text, photo = data['text'], data['photo']
-        users = db.get_users()
-        for row in users:
-            if int(row[1]) == 1:
-                try:
-                    if not photo == 'empty':
+            users = db.get_users()
+            for row in users:
+                if int(row[1]) == 1:
+                    try:
                         await bot.send_photo(row[0],
-                                             photo,
-                                             caption=text)
-                    logging.info("Message sended")
-                except:
-                    db.set_active(row[0], 0)
+                                             data['photo'],
+                                             caption=data['text'])
+                        logging.info("Message sended")
+                    except:
+                        db.set_active(row[0], 0)
 
         await bot.send_message(message.from_user.id, "Сообщения разосланы!")
         await state.finish()
     else:
         return await message.reply(f"Отправьте ФОТО или напишите /skip, чтобыть оставить это поле пустым")
+
+
+async def handle_albums(message: types.Message, album: List[types.Message], state: FSMContext):
+    """This handler will receive a complete album of any type."""
+    media_group = types.MediaGroup()
+    for obj in album:
+        if obj.photo:
+            file_id = obj.photo[-1].file_id
+        else:
+            file_id = obj[obj.content_type].file_id
+
+        try:
+            # We can also add a caption to each file by specifying `"caption": "text"`
+            media_group.attach({"media": file_id, "type": obj.content_type})
+        except ValueError:
+            return await message.answer("Этот тип не поддерживается")
+    #if media group empty -> send photo
+    async with state.proxy() as data:
+        users = db.get_users()
+        for row in users:
+            if int(row[1]) == 1:
+                try:
+                    await bot.send_media_group(row[0],
+                                               media_group)
+                    await bot.send_message(row[0], data['text'])
+                    logging.info("Message sended")
+                except:
+                    db.set_active(row[0], 0)
+    await state.finish()
